@@ -1,5 +1,7 @@
 package org.acme;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,6 +34,7 @@ public class FactorialReactive {
         this.client = WebClient.create(vertx,
                 new WebClientOptions().setDefaultHost("localhost").setDefaultPort(8080).setSsl(false)
                         .setTrustAll(true));
+        
     }
 
     @GET
@@ -64,13 +67,44 @@ public class FactorialReactive {
     public Uni<Response> getFactorialUsingRestClient() {
      var idProcess = UUID.randomUUID();
      try {
-      LOGGER.info("UNI, START idProcess [{}] with ATOMIC_VALUE  [{}]", idProcess, atomicThreadCounter.getAndIncrement());
+    	 LOGGER.info("UNI, START idProcess [{}] with ATOMIC_VALUE  [{}]", idProcess, atomicThreadCounter.getAndIncrement());
          int valueToCalculate = getRandomNumber(2,10);
          Uni<Response> resp = factorialService.getFactorialValueFromClient(String.valueOf(valueToCalculate), String.valueOf(idProcess));
          return resp;
      } finally {
       LOGGER.info("UNI, END idProcess [{}] with ATOMIC_VALUE  [{}]", idProcess, atomicThreadCounter.getAndDecrement());
      }
+    }
+    
+	@GET
+    @Path("/combineUniResponse")
+    public Uni<Object> getFactorialByUniCombine() {    	
+    	var idProcess = UUID.randomUUID();
+    	
+    	int NUMBER_EXTERNAL_APIS = 3;
+    	List<Uni<Response>> results = new ArrayList<>();
+    	for(int i=1;i<=NUMBER_EXTERNAL_APIS;i++) {
+    		int valueToCalculate = getRandomNumber(2,10);
+    		LOGGER.info("combineUniResponse, START idProcess [{}] with valueToCalculate [{}]", idProcess, valueToCalculate);
+    		results.add(factorialService.getFactorialValueFromClient(String.valueOf(valueToCalculate), String.valueOf(idProcess)));    		
+    	}
+    
+    	// collect all the results
+    	Uni<Object> combined = null;
+    	try {    		
+    		combined = Uni.combine().all().unis(results).with(ls -> {
+    			List<String> resp = new ArrayList<String>();
+    			for(Object obj:ls) {
+    				resp.add(((Response)obj).readEntity(String.class));
+    			}
+    			return resp;
+    		} );
+    		LOGGER.info("combineUniResponse, END idProcess [{}]", idProcess);
+    	} catch (Exception e) {
+    		LOGGER.error("Exception error", e);
+    		combined = Uni.createFrom().failure(e);
+    	}
+    	return combined;
     }
 
     private int getRandomNumber(int min, int max) {
