@@ -1,4 +1,4 @@
-# QuarkusPerformanceComparison
+# Quarkus_SpringWebflux_Vertx_PerformanceComparison
 Quarkus RestClient vs Quarkus Vert.x: performance comparison for asynchronous tasks.
 
 These two Quarkus projects belong to the Medium article.
